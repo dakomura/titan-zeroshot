@@ -39,14 +39,32 @@ titan-zeroshot /path/to/directory table.csv color_attribute --classify_attr clas
 ## データ形式
 
 ### 入力ディレクトリ構造
+
+ベースディレクトリAを指定した場合、以下のような構成になっている必要があります：
+
 ```
-directory/
+A/
 └── 20x_512px_0px_overlap/
     └── slide_features_titan/
         ├── sample1.h5
         ├── sample2.h5
+        ├── sample3.h5
         └── ...
 ```
 
+各`.h5`ファイルは、[TRIDENT](https://github.com/mahmoodlab/TRIDENT)ライブラリで計算されたTitan特徴量を含んでいます。ファイル名は`{サンプル名}.h5`の形式で、テーブルファイルの`sample`列と一致する必要があります。
+
 ### テーブルファイル
-TSVまたはCSVファイルで、`sample`列にサンプル名、その他の列にカテゴリ変数を含む。 
+
+TSVまたはCSVファイルで、以下の形式である必要があります：
+
+- `sample`列：サンプル名（.h5ファイル名と一致）
+- その他の列：カテゴリ変数（色分けや分類に使用）
+
+例：
+```csv
+sample,diagnosis,stage
+sample1,normal,early
+sample2,cancer,late
+sample3,normal,early
+``` 
