@@ -12,8 +12,10 @@ from sklearn.model_selection import LeaveOneOut
 from sklearn.metrics import accuracy_score
 from sklearn.metrics.pairwise import cosine_distances
 import seaborn as sns
+import logging
+from datetime import datetime
 
-def load_titan_features(feature_dir):
+def load_titan_features(feature_dir, logger):
     """titan特徴量を読み込む"""
     features = {}
     
@@ -30,14 +32,14 @@ def load_titan_features(feature_dir):
                     feature_vector = f[keys[0]][:]
                 else:
                     # 複数キーがある場合は最初のキーを使用
-                    print(f"Warning: Multiple keys found in {filename}: {keys}")
+                    logger.warning(f"Multiple keys found in {filename}: {keys}")
                     feature_vector = f[keys[0]][:]
                 
                 features[sample_name] = feature_vector
     
     return features
 
-def create_umap_plot(features_dict, table_df, color_attr, output_path):
+def create_umap_plot(features_dict, table_df, color_attr, output_path, logger):
     """UMAPで次元削減してプロット"""
     # 特徴量とサンプル名を整理
     sample_names = []
@@ -49,7 +51,7 @@ def create_umap_plot(features_dict, table_df, color_attr, output_path):
             feature_matrix.append(feature_vector)
     
     feature_matrix = np.array(feature_matrix)
-    print(f"Feature matrix shape: {feature_matrix.shape}")
+    logger.info(f"Feature matrix shape: {feature_matrix.shape}")
     
     # UMAP実行
     reducer = umap.UMAP()
@@ -86,9 +88,9 @@ def create_umap_plot(features_dict, table_df, color_attr, output_path):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"UMAP plot saved to: {output_path}")
+    logger.info(f"UMAP plot saved to: {output_path}")
 
-def evaluate_knn_classification(features_dict, table_df, target_attr, k, output_path):
+def evaluate_knn_classification(features_dict, table_df, target_attr, k, output_path, logger):
     """k-NNによるLOOCV評価"""
     # データ準備
     sample_names = []
@@ -106,8 +108,8 @@ def evaluate_knn_classification(features_dict, table_df, target_attr, k, output_
     labels = np.array(labels)
     sample_names = np.array(sample_names)
     
-    print(f"Classification data shape: {feature_matrix.shape}")
-    print(f"Number of samples: {len(labels)}")
+    logger.info(f"Classification data shape: {feature_matrix.shape}")
+    logger.info(f"Number of samples: {len(labels)}")
     
     # コサイン距離を使用するk-NN分類器
     knn = KNeighborsClassifier(n_neighbors=k, metric='cosine')
@@ -208,9 +210,9 @@ def evaluate_knn_classification(features_dict, table_df, target_attr, k, output_
             
             f.write("\n" + "-"*50 + "\n\n")
     
-    print(f"Classification results saved to: {output_path}")
-    print(f"Neighbor information saved to: {neighbors_output}")
-    print(f"Overall accuracy: {overall_accuracy:.4f}")
+    logger.info(f"Classification results saved to: {output_path}")
+    logger.info(f"Neighbor information saved to: {neighbors_output}")
+    logger.info(f"Overall accuracy: {overall_accuracy:.4f}")
 
 def main():
     parser = argparse.ArgumentParser(description='Titan特徴量の分析（UMAP可視化とk-NN分類）')
@@ -226,6 +228,30 @@ def main():
     # 分類属性が指定されていない場合は色分け属性を使用
     classify_attr = args.classify_attr if args.classify_attr else args.color_attr
     
+    # ログファイルの設定
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = f"{args.output_prefix}_analysis_{timestamp}.log"
+    
+    # ロガーの設定
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_filename, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    logger = logging.getLogger(__name__)
+    
+    logger.info("=== Titan特徴量分析開始 ===")
+    logger.info(f"ベースディレクトリ: {args.directory}")
+    logger.info(f"テーブルファイル: {args.table_file}")
+    logger.info(f"色分け属性: {args.color_attr}")
+    logger.info(f"分類属性: {classify_attr}")
+    logger.info(f"k-NNのk値: {args.k}")
+    logger.info(f"出力プレフィックス: {args.output_prefix}")
+    logger.info(f"ログファイル: {log_filename}")
+    
     # パス設定
     feature_dir = os.path.join(args.directory, '20x_512px_0px_overlap', 'slide_features_titan')
     umap_output = f"{args.output_prefix}_umap_{args.color_attr}.png"
@@ -233,45 +259,91 @@ def main():
     
     # 入力チェック
     if not os.path.exists(feature_dir):
-        print(f"Error: Feature directory not found: {feature_dir}")
+        logger.error(f"Feature directory not found: {feature_dir}")
         return
     
     if not os.path.exists(args.table_file):
-        print(f"Error: Table file not found: {args.table_file}")
+        logger.error(f"Table file not found: {args.table_file}")
         return
     
     # データ読み込み
-    print("Loading titan features...")
-    features_dict = load_titan_features(feature_dir)
-    print(f"Loaded {len(features_dict)} feature files")
+    logger.info("Loading titan features...")
+    features_dict = load_titan_features(feature_dir, logger)
+    logger.info(f"Loaded {len(features_dict)} feature files")
     
-    print("Loading table data...")
+    logger.info("Loading table data...")
     if args.table_file.endswith('.tsv'):
         table_df = pd.read_csv(args.table_file, sep='\t')
     else:
         table_df = pd.read_csv(args.table_file)
     
-    print(f"Table shape: {table_df.shape}")
-    print(f"Available columns: {list(table_df.columns)}")
+    logger.info(f"Table shape: {table_df.shape}")
+    logger.info(f"Available columns: {list(table_df.columns)}")
     
     # 属性の存在チェック
     if args.color_attr not in table_df.columns:
-        print(f"Error: Color attribute '{args.color_attr}' not found in table")
+        logger.error(f"Color attribute '{args.color_attr}' not found in table")
         return
     
     if classify_attr not in table_df.columns:
-        print(f"Error: Classification attribute '{classify_attr}' not found in table")
+        logger.error(f"Classification attribute '{classify_attr}' not found in table")
         return
     
+    # サンプル統計情報の出力
+    logger.info("=== サンプル統計情報 ===")
+    logger.info(f"テーブルファイルのサンプル数: {len(table_df)}")
+    logger.info(f"利用可能なh5ファイル数: {len(features_dict)}")
+    
+    # 欠損サンプルのチェックと記録
+    table_samples = set(table_df['sample'].values)
+    available_samples = set(features_dict.keys())
+    missing_samples = table_samples - available_samples
+    common_samples = table_samples & available_samples
+    
+    logger.info(f"テーブルとh5ファイルの共通サンプル数: {len(common_samples)}")
+    logger.info(f"欠損サンプル数: {len(missing_samples)}")
+    
+    if missing_samples:
+        logger.warning("=== 欠損サンプル一覧 ===")
+        for sample in sorted(missing_samples):
+            logger.warning(f"Missing h5 file for sample: {sample}")
+    
+    # 各属性の統計情報
+    logger.info("=== 属性別統計情報 ===")
+    for attr in [args.color_attr, classify_attr]:
+        if attr in table_df.columns:
+            value_counts = table_df[attr].value_counts()
+            logger.info(f"{attr}属性の分布:")
+            for value, count in value_counts.items():
+                logger.info(f"  {value}: {count}サンプル")
+    
+    # 解析対象サンプルの統計情報
+    analysis_samples = [s for s in table_df['sample'].values if s in features_dict]
+    analysis_df = table_df[table_df['sample'].isin(analysis_samples)]
+    
+    logger.info("=== 解析対象サンプル統計 ===")
+    logger.info(f"解析対象サンプル数: {len(analysis_samples)}")
+    
+    for attr in [args.color_attr, classify_attr]:
+        if attr in analysis_df.columns:
+            value_counts = analysis_df[attr].value_counts()
+            logger.info(f"解析対象の{attr}属性の分布:")
+            for value, count in value_counts.items():
+                logger.info(f"  {value}: {count}サンプル")
+    
     # 処理1: UMAP可視化
-    print("Creating UMAP visualization...")
-    create_umap_plot(features_dict, table_df, args.color_attr, umap_output)
+    logger.info("Creating UMAP visualization...")
+    create_umap_plot(features_dict, table_df, args.color_attr, umap_output, logger)
     
     # 処理2: k-NN分類評価
-    print("Evaluating k-NN classification...")
-    evaluate_knn_classification(features_dict, table_df, classify_attr, args.k, classification_output)
+    logger.info("Evaluating k-NN classification...")
+    evaluate_knn_classification(features_dict, table_df, classify_attr, args.k, classification_output, logger)
     
-    print("Analysis completed!")
+    logger.info("=== 分析完了 ===")
+    logger.info(f"ログファイル: {log_filename}")
+    logger.info(f"UMAPプロット: {umap_output}")
+    logger.info(f"分類結果: {classification_output}")
+    logger.info(f"近傍情報: {classification_output.replace('.txt', '_neighbors.txt')}")
 
 if __name__ == "__main__":
     main() 

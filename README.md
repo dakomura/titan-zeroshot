@@ -35,6 +35,7 @@ titan-zeroshot /path/to/directory table.csv color_attribute --classify_attr clas
 - `{prefix}_umap_{color_attr}.png`: UMAPプロット
 - `{prefix}_classification_{classify_attr}_k{k}.txt`: 分類結果
 - `{prefix}_classification_{classify_attr}_k{k}_neighbors.txt`: 各サンプルの近傍詳細情報
+- `{prefix}_analysis_{timestamp}.log`: 分析ログファイル（自動生成）
 
 ## データ形式
 
@@ -67,4 +68,17 @@ sample,diagnosis,stage
 sample1,normal,early
 sample2,cancer,late
 sample3,normal,early
-``` 
+```
+
+## ログ機能
+
+分析実行時には自動的にログファイルが生成され、以下の情報が記録されます：
+
+- 分析パラメータと設定
+- サンプル統計情報（テーブルファイルのサンプル数、利用可能なh5ファイル数など）
+- 欠損サンプルの一覧（テーブルファイルにあるがh5ファイルが存在しないサンプル）
+- 各属性の分布統計
+- 解析対象サンプルの詳細統計
+- 処理の進行状況と結果
+
+ログファイル名は `{prefix}_analysis_{timestamp}.log` の形式で自動生成されます。 
