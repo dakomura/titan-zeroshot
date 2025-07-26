@@ -6,14 +6,56 @@ TITAN特徴量は [TRIDENT](https://github.com/mahmoodlab/TRIDENT) ライブラ�
 
 ## インストール
 
+### 環境構築（推奨）
+
+#### 1. micromambaでPython環境を作成
+
+```bash
+# Python 3.11の環境を作成
+micromamba create -n titan-zeroshot python=3.11
+
+# 環境をアクティベート
+micromamba activate titan-zeroshot
+```
+
+#### 2. uvでパッケージをインストール
+
+```bash
+# uvをインストール（まだインストールしていない場合）
+pip install uv
+
+# titan-zeroshotパッケージをインストール
+uv pip install git+https://github.com/dakomura/titan-zeroshot.git
+```
+
+### 代替インストール方法
+
+#### uvを使用した場合
 ```bash
 uv pip install git+https://github.com/dakomura/titan-zeroshot.git
 ```
 
-または通常のpipでも可能：
+#### 通常のpipを使用した場合
 ```bash
 pip install git+https://github.com/dakomura/titan-zeroshot.git
 ```
+
+### 環境構築の詳細
+
+#### 必要なツール
+
+1. **micromamba**: 高速なパッケージマネージャー
+   - インストール: https://mamba.readthedocs.io/en/latest/installation.html
+   - または: `conda install mamba -n base -c conda-forge`
+
+2. **uv**: 高速なPythonパッケージマネージャー
+   - インストール: `pip install uv`
+   - または: https://docs.astral.sh/uv/getting-started/installation/
+
+#### 推奨環境
+
+- Python 3.8以上（3.11推奨）
+- 十分なディスク容量（依存関係のダウンロード用）
 
 ## 使用方法
 
