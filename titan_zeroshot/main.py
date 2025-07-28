@@ -26,20 +26,13 @@ def load_titan_features(feature_dir, logger):
             
             with h5py.File(filepath, 'r') as f:
                 # h5ファイルの構造を確認して適切にデータを読み込む
-                # 一般的にはメインのデータセットキーがあるはず
-                keys = list(f.keys())
-                if len(keys) == 1:
-                    feature_vector = f[keys[0]][:]
-                else:
-                    # 複数キーがある場合は最初のキーを使用
-                    logger.warning(f"Multiple keys found in {filename}: {keys}")
-                    feature_vector = f[keys[0]][:]
-                
+                # featuresキーが存在する場合はそれを使用
+                feature_vector = f['features'][:]
                 features[sample_name] = feature_vector
     
     return features
 
-def create_umap_plot(features_dict, table_df, color_attr, output_path, logger):
+def create_umap_plot(features_dict, table_df, color_attr, output_path, logger, show_labels=False, random_state=42):
     """UMAPで次元削減してプロット"""
     # 特徴量とサンプル名を整理
     sample_names = []
@@ -53,8 +46,8 @@ def create_umap_plot(features_dict, table_df, color_attr, output_path, logger):
     feature_matrix = np.array(feature_matrix)
     logger.info(f"Feature matrix shape: {feature_matrix.shape}")
     
-    # UMAP実行
-    reducer = umap.UMAP()
+    # UMAP実行（乱数シード固定）
+    reducer = umap.UMAP(random_state=random_state)
     embedding = reducer.fit_transform(feature_matrix)
     
     # プロット用のDataFrame作成
@@ -68,7 +61,7 @@ def create_umap_plot(features_dict, table_df, color_attr, output_path, logger):
     plot_df = plot_df.merge(table_df[['sample', color_attr]], on='sample', how='left')
     
     # プロット
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(12, 10) if show_labels else (10, 8))
     unique_categories = plot_df[color_attr].unique()
     colors = sns.color_palette("husl", len(unique_categories))
     
@@ -79,6 +72,16 @@ def create_umap_plot(features_dict, table_df, color_attr, output_path, logger):
                    c=[colors[i]], 
                    label=str(category), 
                    alpha=0.7)
+        
+        # サンプル名を表示する場合
+        if show_labels:
+            for _, row in plot_df[mask].iterrows():
+                plt.annotate(row['sample'], 
+                           (row['UMAP1'], row['UMAP2']), 
+                           xytext=(5, 5), 
+                           textcoords='offset points', 
+                           fontsize=8, 
+                           alpha=0.8)
     
     plt.xlabel('UMAP1')
     plt.ylabel('UMAP2')
@@ -222,6 +225,8 @@ def main():
     parser.add_argument('--classify_attr', help='分類対象の属性名（指定しない場合は色分け属性と同じ）')
     parser.add_argument('--k', type=int, default=5, help='k-NNのk値（デフォルト: 5）')
     parser.add_argument('--output_prefix', default='output', help='出力ファイルのプレフィックス（デフォルト: output）')
+    parser.add_argument('--show_labels', action='store_true', help='UMAPプロットにサンプル名を表示')
+    parser.add_argument('--random_state', type=int, default=42, help='UMAPの乱数シード（デフォルト: 42）')
     
     args = parser.parse_args()
     
@@ -305,8 +310,15 @@ def main():
     
     if missing_samples:
         logger.warning("=== 欠損サンプル一覧 ===")
-        for sample in sorted(missing_samples):
+        # NaN値を除外してからソート
+        valid_missing_samples = [s for s in missing_samples if pd.notna(s)]
+        for sample in sorted(valid_missing_samples):
             logger.warning(f"Missing h5 file for sample: {sample}")
+        
+        # NaN値がある場合は別途報告
+        nan_samples = [s for s in missing_samples if pd.isna(s)]
+        if nan_samples:
+            logger.warning(f"Found {len(nan_samples)} samples with NaN values in sample column")
     
     # 各属性の統計情報
     logger.info("=== 属性別統計情報 ===")
@@ -333,7 +345,7 @@ def main():
     
     # 処理1: UMAP可視化
     logger.info("Creating UMAP visualization...")
-    create_umap_plot(features_dict, table_df, args.color_attr, umap_output, logger)
+    create_umap_plot(features_dict, table_df, args.color_attr, umap_output, logger, args.show_labels, args.random_state)
     
     # 処理2: k-NN分類評価
     logger.info("Evaluating k-NN classification...")
